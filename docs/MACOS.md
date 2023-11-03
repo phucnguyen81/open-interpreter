@@ -1,5 +1,7 @@
 # Code-Llama on MacOS (Apple Silicon)
 
+> __ATTENTION: This tutorial is intended for Apple Silicon only Macs. Intel based Macs cannot use the GPU mode.__
+
 When running Open Interpreter on macOS with Code-Llama (either because you did
 not enter an OpenAI API key or you ran `interpreter --local`) you may want to
 make sure it works correctly by following the instructions below.
@@ -56,7 +58,6 @@ Follow the on-screen instructions to complete the installation. Once installed, 
 
 ```bash
 CMAKE_ARGS="-DCMAKE_OSX_ARCHITECTURES=arm64 -DLLAMA_METAL=on" FORCE_CMAKE=1 pip install --upgrade --force-reinstall llama-cpp-python --no-cache-dir
---no-cache-dir
 ```
 
 ### Step 2: Verifying Installation of llama-cpp-python with ARM64 Support

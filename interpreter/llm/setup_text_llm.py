@@ -1,12 +1,12 @@
-
+import os
+import traceback
 
 import litellm
+import tokentrim as tt
 
 from ..utils.display_markdown_message import display_markdown_message
 from .setup_local_text_llm import setup_local_text_llm
-import os
-import tokentrim as tt
-import traceback
+
 
 def setup_text_llm(interpreter):
     """
@@ -15,7 +15,6 @@ def setup_text_llm(interpreter):
     """
 
     if interpreter.local:
-
         # Soon, we should have more options for local setup. For now we only have HuggingFace.
         # So we just do that.
 
@@ -27,14 +26,14 @@ def setup_text_llm(interpreter):
             # this gets set up in the terminal interface / validate LLM settings.
             # then that's passed into this:
             return setup_local_text_llm(interpreter)
-        
+
         # If we're here, it means the user wants to use
         # an OpenAI compatible endpoint running on localhost
 
         if interpreter.api_base is None:
             raise Exception('''To use Open Interpreter locally, either provide a huggingface model via `interpreter --model huggingface/{huggingface repo name}`
                             or a localhost URL that exposes an OpenAI compatible endpoint by setting `interpreter --api_base {localhost URL}`.''')
-        
+
         # Tell LiteLLM to treat the endpoint as an OpenAI proxy
         model = "custom_openai/" + interpreter.model
 
@@ -47,18 +46,17 @@ def setup_text_llm(interpreter):
             traceback.print_exc()
             # If it didn't work, apologize and switch to GPT-4
 
-            display_markdown_message(f"""
+            display_markdown_message(
+                f"""
             > Failed to install `{interpreter.model}`.
-            \n\n**Common Fixes:** You can follow our simple setup docs at the link below to resolve common errors.\n\n> `https://github.com/KillianLucas/open-interpreter/tree/main/docs`
-            \n\n**If you've tried that and you're still getting an error, we have likely not built the proper `{interpreter.model}` support for your system.**
-            \n\n*( Running language models locally is a difficult task!* If you have insight into the best way to implement this across platforms/architectures, please join the Open Interpreter community Discord and consider contributing the project's development.
-            """)
-            
-            raise Exception("Architecture not yet supported for local LLM inference. Please run `interpreter` to connect to a cloud model, then try `--local` again in a few days.")
+            \n\n**We have likely not built the proper `{interpreter.model}` support for your system.**
+            \n\n(*Running language models locally is a difficult task!* If you have insight into the best way to implement this across platforms/architectures, please join the `Open Interpreter` community Discord, or the `Oobabooga` community Discord, and consider contributing the development of these projects.)
+            """
+            )
 
-    else:
-        # For non-local use, pass in the model directly
-        model = interpreter.model
+            raise Exception(
+                "Architecture not yet supported for local LLM inference via `Oobabooga`. Please run `interpreter` to connect to a cloud model."
+            )
 
     # Pass remaining parameters to LiteLLM
     def base_llm(messages):
@@ -68,32 +66,47 @@ def setup_text_llm(interpreter):
 
         system_message = messages[0]["content"]
 
-        system_message += "\n\nTo execute code on the user's machine, write a markdown code block *with a language*, i.e ```python, ```shell, ```r, ```html, or ```javascript. You will recieve the code output."
+        # Tell it how to run code.
+        # THIS MESSAGE IS DUPLICATED IN `setup_local_text_llm.py`
+        # (We should deduplicate it somehow soon)
+        system_message += "\nTo execute code on the user's machine, write a markdown code block *with the language*, i.e:\n\n```python\nprint('Hi!')\n```\n\nYou will receive the output ('Hi!'). Use any language."
 
         # TODO swap tt.trim for litellm util
-        
+        messages = messages[1:]
         if interpreter.context_window and interpreter.max_tokens:
-            trim_to_be_this_many_tokens = interpreter.context_window - interpreter.max_tokens - 25 # arbitrary buffer
-            messages = tt.trim(messages, system_message=system_message, max_tokens=trim_to_be_this_many_tokens)
+            trim_to_be_this_many_tokens = (
+                interpreter.context_window - interpreter.max_tokens - 25
+            )  # arbitrary buffer
+            messages = tt.trim(
+                messages,
+                system_message=system_message,
+                max_tokens=trim_to_be_this_many_tokens,
+            )
         else:
             try:
-                messages = tt.trim(messages, system_message=system_message, model=interpreter.model)
+                messages = tt.trim(
+                    messages, system_message=system_message, model=interpreter.model
+                )
             except:
-                display_markdown_message("""
+                display_markdown_message(
+                    """
                 **We were unable to determine the context window of this model.** Defaulting to 3000.
                 If your model can handle more, run `interpreter --context_window {token limit}` or `interpreter.context_window = {token limit}`.
                 Also, please set max_tokens: `interpreter --max_tokens {max tokens per response}` or `interpreter.max_tokens = {max tokens per response}`
-                """)
-                messages = tt.trim(messages, system_message=system_message, max_tokens=3000)
+                """
+                )
+                messages = tt.trim(
+                    messages, system_message=system_message, max_tokens=3000
+                )
 
         if interpreter.debug_mode:
             print("Passing messages into LLM:", messages)
-    
+
         # Create LiteLLM generator
         params = {
-            'model': interpreter.model,
-            'messages': messages,
-            'stream': True,
+            "model": interpreter.model,
+            "messages": messages,
+            "stream": True,
         }
 
         # Optional inputs
@@ -103,8 +116,10 @@ def setup_text_llm(interpreter):
             params["api_key"] = interpreter.api_key
         if interpreter.max_tokens:
             params["max_tokens"] = interpreter.max_tokens
-        if interpreter.temperature:
+        if interpreter.temperature is not None:
             params["temperature"] = interpreter.temperature
+        else:
+            params["temperature"] = 0.0
 
         # These are set directly on LiteLLM
         if interpreter.max_budget:
