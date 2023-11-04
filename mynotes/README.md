@@ -8,15 +8,23 @@ AZURE_API_VERSION=2023-08-01-preview
 AZURE_DEPLOYMENT_NAME=gpt-4
 ```
 
-Run the interpreter:
+Install virtual environment with poetry:
+```sh
+poetry install
 ```
-set-dotenv.ps1
+
+Add dotenv plugin to load .env file:
+```sh
+poetry self add poetry-plugin-dotenv
+```
+
+Run the interpreter:
+```sh
 poetry run python main.py
 ```
 
 Run the interpreter outside open-interpreter directory:
-```
-?? some how load .env
+```powershell
+$env:POETRY_DOTENV_LOCATION="/path/to/.env"
 poetry run -C /path/to/open-interpreter python /path/to/main.py
 ```
-
